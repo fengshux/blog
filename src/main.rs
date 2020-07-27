@@ -9,10 +9,11 @@ fn index() -> &'static str {
 
 use postgres::{Client, NoTls, Error};
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use rocket_contrib::json::Json;
 
 #[derive(Serialize)]
+#[derive(Deserialize)]
 struct Post{
     id: i64,
     title: String,
@@ -39,9 +40,20 @@ fn list() -> Json<Vec<Post>> {
     Json(posts)
 }
 
+#[post("/", data = "<post>")]
+fn create(post: Json<Post>) -> Json<Post> {
+    let mut client = Client::connect("postgresql://postgres:post123@localhost/blog", NoTls).expect("connect error");
+    client.execute(
+        "INSERT INTO post (title, body) VALUES ($1, $2)",
+        &[&post.title, &post.body],
+    ).expect("insert error");
+    
+    post
+}
+
 fn main() {
     rocket::ignite()
         .mount("/", routes![index])
-        .mount("/post", routes![list])
+        .mount("/post", routes![list, create])
         .launch();    
 }
